@@ -101,7 +101,58 @@ const key=c=>c.title+"|"+c.media+"|"+c.extent;
 const titleBase=s=>s.replace(/（'\d{2}）/,"").trim();
 const favs=new Set(JSON.parse(localStorage.getItem("ouj-favs")||"[]"));
 let history=JSON.parse(localStorage.getItem("ouj-history")||"[]");
-let state={view:"home",q:"",media:"",extent:"",selected:null};
+const NAV_KEY="ouj-nav-state-v1";
+const defaultState={view:"home",q:"",media:"",extent:"",selected:null};
+let savedNav={};
+try{savedNav=JSON.parse(localStorage.getItem(NAV_KEY)||"{}")}catch(e){}
+let state={...defaultState,...(savedNav.state||{}),selected:null};
+let restorePending=!!savedNav.restorePending;
+let scrollSaveTimer=null;
+
+function getScrollAnchor(){
+  const cards=[...document.querySelectorAll(".card")];
+  const anchor=cards.find(el=>el.getBoundingClientRect().bottom>72);
+  if(!anchor)return null;
+  return {key:anchor.dataset.key,top:anchor.getBoundingClientRect().top};
+}
+function saveNavState(markReturn=false){
+  const payload={
+    state:{view:state.view,q:state.q,media:state.media,extent:state.extent},
+    scrollY:window.scrollY||0,
+    anchor:getScrollAnchor(),
+    restorePending:markReturn||restorePending,
+    savedAt:Date.now()
+  };
+  localStorage.setItem(NAV_KEY,JSON.stringify(payload));
+  savedNav=payload;
+}
+function syncControls(){
+  $("#homeQ").value=state.q||"";
+  $(".nav").forEach(n=>n.classList.toggle("on",n.dataset.view===state.view || (state.view==="search"&&n.dataset.view==="search")));
+  $("[data-media]").forEach(ch=>ch.classList.toggle("on",(ch.dataset.media||"")===(state.media||"")));
+  const extentChip=$('[data-extent="全15回"]');
+  if(extentChip)extentChip.classList.toggle("on",state.extent==="全15回");
+}
+function restoreScrollPosition(force=false){
+  let snap={};
+  try{snap=JSON.parse(localStorage.getItem(NAV_KEY)||"{}")}catch(e){}
+  if(!force && !snap.restorePending)return;
+  const doRestore=()=>{
+    let y=Number(snap.scrollY)||0;
+    if(snap.anchor&&snap.anchor.key){
+      const el=[...document.querySelectorAll(".card")].find(x=>x.dataset.key===snap.anchor.key);
+      if(el){
+        const pageTop=el.getBoundingClientRect().top+(window.scrollY||0);
+        y=Math.max(0,pageTop-(Number(snap.anchor.top)||0));
+      }
+    }
+    window.scrollTo(0,y);
+    snap.restorePending=false;
+    localStorage.setItem(NAV_KEY,JSON.stringify(snap));
+    restorePending=false;
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(doRestore));
+}
 
 function saveFavs(){localStorage.setItem("ouj-favs",JSON.stringify([...favs]))}
 function saveHistory(){localStorage.setItem("ouj-history",JSON.stringify(history.slice(0,50)))}
@@ -138,15 +189,16 @@ function render(){
  xs.slice(0,120).forEach(c=>$("#feed").appendChild(card(c)));
  $("#count").textContent=xs.length+"件";
  $("#viewTitle").textContent=state.view==="history"?"再生履歴":state.view==="favorites"?"お気に入り":state.q?"検索結果":"おすすめ / 新しい授業";
- $("#homeQ").value=state.q;
+ syncControls();
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
 function launchOfficial(c){
   addHistory(c);
-  render();
   const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
+  restorePending=true;
+  saveNavState(true);
   // External OUJ player is intentionally opened outside the PWA frame.
-  // This avoids OUJ's player stalling inside a nested third-party iframe.
+  // Save search/filter/scroll context first so returning feels continuous.
   const w=window.open(url,"_blank","noopener");
   if(!w) window.location.href=url;
 }
@@ -177,14 +229,26 @@ function closeWatchUI(){
 }
 $("#closeWatch").onclick=()=>{closeWatchUI();if(location.hash==="#watch")window.history.back()};
 $("#watchFav").onclick=()=>{if(state.selected){toggleFav(state.selected);$("#watchFav").textContent=(favs.has(key(state.selected))?"★":"☆")+" お気に入り";render()}};
-$("#homeQ").addEventListener("input",e=>{state.q=e.target.value;state.view="search";$$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.view==="search"));render()});
-$$(".nav").forEach(n=>n.onclick=()=>{state.view=n.dataset.view;if(state.view==="home")state.q="";$$(".nav").forEach(x=>x.classList.toggle("on",x===n));render();scrollTo(0,0)});
+$("#homeQ").addEventListener("input",e=>{state.q=e.target.value;state.view="search";render();saveNavState(false)});
+$(".nav").forEach(n=>n.onclick=()=>{state.view=n.dataset.view;if(state.view==="home")state.q="";render();scrollTo(0,0);saveNavState(false)});
 $$(".chip").forEach(ch=>ch.onclick=()=>{
  if(ch.dataset.media!==undefined){state.media=ch.dataset.media;$$("[data-media]").forEach(x=>x.classList.toggle("on",x===ch));}
  if(ch.dataset.extent!==undefined){state.extent=state.extent? "":ch.dataset.extent;ch.classList.toggle("on",!!state.extent)}
  render();
+ saveNavState(false);
 });
 addEventListener("popstate",()=>{if(location.hash!=="#watch")closeWatchUI()});
+addEventListener("scroll",()=>{
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer=setTimeout(()=>saveNavState(false),120);
+},{passive:true});
+addEventListener("pagehide",()=>saveNavState(restorePending));
+addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden") saveNavState(restorePending);
+  else if(restorePending) restoreScrollPosition(true);
+});
+addEventListener("pageshow",()=>{if(restorePending)restoreScrollPosition(true)});
+addEventListener("focus",()=>{if(restorePending)restoreScrollPosition(true)});
 function online(){ $("#offline").classList.toggle("on",!navigator.onLine)} addEventListener("online",online);addEventListener("offline",online);online();
 
 let deferredPrompt=null;
@@ -192,6 +256,7 @@ addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$
 $("#installBtn").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installBtn").style.display="none"};
 if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 render();
+restoreScrollPosition(true);
 });
 </script>
 </body></html>
