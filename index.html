@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="放送大学Media">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<title>放送大学 メディア</title>
+<style>
+:root{--bg:#0b0d11;--panel:#151922;--panel2:#1d2330;--text:#f7f8fa;--muted:#9ca3af;--line:#2a303c;--blue:#4f7cff;--red:#ff4d5e;--safe-b:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP","Yu Gothic UI",sans-serif}
+body{min-height:100dvh;padding-bottom:calc(76px + var(--safe-b))}
+button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58px;display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0b0d11ee;backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--blue);display:grid;place-items:center;font-weight:900}.title{font-weight:800;white-space:nowrap}
+.spacer{flex:1}.iconbtn{border:0;background:var(--panel2);color:var(--text);border-radius:10px;padding:8px 10px}.install{display:none;background:var(--blue);font-size:12px;font-weight:800}
+.page{padding:12px;max-width:760px;margin:auto}.search{position:sticky;top:66px;z-index:20;background:var(--bg);padding-bottom:8px}
+.search input{width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);font-size:16px;outline:none}
+.chips{display:flex;gap:7px;overflow:auto;padding:9px 0 3px;scrollbar-width:none}.chip{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:7px 10px;border-radius:999px;font-size:13px}.chip.on{background:#e8ecff;color:#111827;border-color:#e8ecff}
+.sectionhead{display:flex;align-items:center;justify-content:space-between;margin:13px 2px 10px}.sectionhead h2{font-size:18px;margin:0}.count{font-size:12px;color:var(--muted)}
+.feed{display:grid;gap:14px}.card{border:0;background:transparent;color:inherit;text-align:left;padding:0;cursor:pointer}.thumb{aspect-ratio:16/9;border-radius:14px;background:linear-gradient(135deg,#1f2937,#111827);border:1px solid var(--line);display:grid;place-items:center;position:relative;overflow:hidden}
+.thumb .play{width:52px;height:52px;border-radius:50%;background:#000a;display:grid;place-items:center;font-size:23px;padding-left:3px}
+.thumb .media{position:absolute;left:9px;top:9px;background:#000b;padding:5px 8px;border-radius:7px;font-size:11px;font-weight:800}.thumb .extent{position:absolute;right:9px;bottom:9px;background:#000c;padding:4px 7px;border-radius:5px;font-size:11px}
+.cardbody{display:grid;grid-template-columns:42px 1fr auto;gap:10px;padding:9px 2px 0}.avatar{width:40px;height:40px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:11px;font-weight:800}.ctitle{font-size:15px;font-weight:800;line-height:1.45}.meta{font-size:12px;color:var(--muted);margin-top:3px}.star{border:0;background:none;color:#9ca3af;font-size:23px;padding:0 4px}.star.on{color:#facc15}
+.bottom{position:fixed;z-index:40;left:0;right:0;bottom:0;height:calc(64px + var(--safe-b));padding-bottom:var(--safe-b);background:#0b0d11f5;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);backdrop-filter:blur(18px)}
+.nav{border:0;background:transparent;color:var(--muted);font-size:11px;display:grid;place-items:center;align-content:center;gap:2px}.nav b{font-size:20px;line-height:1}.nav.on{color:#fff}
+.hidden{display:none!important}.empty{padding:50px 12px;text-align:center;color:var(--muted)}
+/* watch */
+.watch{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:auto}.watchtop{position:sticky;top:0;z-index:5;display:flex;align-items:center;padding:8px;background:#0b0d11ee;border-bottom:1px solid var(--line)}.watchtop button{border:0;background:transparent;color:white;font-size:25px;padding:8px}.watchtop strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player{background:#000;aspect-ratio:16/9;position:relative;display:grid;place-items:center}.player iframe{width:100%;height:100%;border:0}.playerStart{text-align:center;padding:20px}.playerStart .big{display:inline-grid;place-items:center;width:68px;height:68px;border-radius:50%;background:var(--blue);font-size:31px;border:0;color:#fff;padding-left:5px}.playerStart p{font-size:12px;color:#d1d5db;max-width:330px}
+.watchinfo{padding:15px}.watchinfo h1{font-size:20px;line-height:1.45;margin:0 0 7px}.watchmeta{color:var(--muted);font-size:13px}.watchactions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.watchactions button,.watchactions a{border:0;text-decoration:none;text-align:center;background:var(--panel2);color:#fff;border-radius:12px;padding:11px 7px;font-size:12px;font-weight:700}.notice{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:12px;color:#cbd5e1;line-height:1.6}
+.offline{display:none;font-size:11px;background:#7f1d1d;padding:5px 8px;border-radius:8px}.offline.on{display:block}
+@media(min-width:700px){.feed{grid-template-columns:1fr 1fr}.watch{left:50%;transform:translateX(-50%);max-width:760px;box-shadow:0 0 0 100vw #0008}}
+</style>
+</head>
+<body>
+<header class="top">
+ <div class="logo">OU</div><div class="title">放送大学 Media</div>
+ <span id="offline" class="offline">オフライン</span><div class="spacer"></div>
+ <button id="installBtn" class="iconbtn install">アプリを設置</button>
+ 
+</header>
+
+<main class="page">
+ <section id="homeView">
+  <div class="search"><input id="homeQ" type="search" placeholder="授業を検索：哲学、文学、心理、ユング…">
+   <div class="chips" id="mediaChips"><button class="chip on" data-media="">すべて</button><button class="chip" data-media="テレビ">テレビ</button><button class="chip" data-media="ラジオ">ラジオ</button><button class="chip" data-extent="全15回">全15回公開</button></div>
+  </div>
+  <div class="sectionhead"><h2 id="viewTitle">おすすめ / 新しい授業</h2><span id="count" class="count"></span></div>
+  <div id="feed" class="feed"></div>
+ </section>
+</main>
+
+<nav class="bottom">
+ <button class="nav on" data-view="home"><b>⌂</b><span>ホーム</span></button>
+ <button class="nav" data-view="search"><b>⌕</b><span>検索</span></button>
+ <button class="nav" data-view="history"><b>◷</b><span>履歴</span></button>
+ <button class="nav" data-view="favorites"><b>★</b><span>お気に入り</span></button>
+</nav>
+
+<section id="watch" class="watch hidden" aria-hidden="true">
+ <div class="watchtop"><button id="closeWatch">‹</button><strong id="watchBarTitle"></strong></div>
+ <div id="player" class="player"></div>
+ <div class="watchinfo">
+  <h1 id="watchTitle"></h1><div id="watchMeta" class="watchmeta"></div>
+  <div class="watchactions">
+   <button id="watchFav">☆ お気に入り</button>
+   <button id="copyTitle">題名コピー</button>
+   <a href="https://www.ouj.ac.jp/for-students/" target="_blank" rel="noopener">WAKABA</a>
+  </div>
+  <div class="notice">
+   <b>再生について</b><br>
+   「再生」を押すと、放送大学の公式OCWプレーヤーをこの画面内に読み込みます。ブラウザ側のフレーム制限等で表示できない場合は「公式で開く」を利用してください。<br>
+   在学生向け全科目・全回視聴は WAKABA → 学内リンク → 放送授業のインターネット配信を利用します。映像・音声はこのアプリには保存しません。
+  </div>
+ </div>
+</section>
+
+<script src="./courses.js"></script>
+<script>
+const PLAYER="https://v.ouj.ac.jp/view/ouj/";
+const OCW="https://www.ouj.ac.jp/reasons-to-choose-us/ocw/";
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const norm=s=>(s||"").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
+const key=c=>c.title+"|"+c.media+"|"+c.extent;
+const titleBase=s=>s.replace(/（'\d{2}）/,"").trim();
+const favs=new Set(JSON.parse(localStorage.getItem("ouj-favs")||"[]"));
+let history=JSON.parse(localStorage.getItem("ouj-history")||"[]");
+let state={view:"home",q:"",media:"",extent:"",selected:null};
+
+function saveFavs(){localStorage.setItem("ouj-favs",JSON.stringify([...favs]))}
+function saveHistory(){localStorage.setItem("ouj-history",JSON.stringify(history.slice(0,50)))}
+function addHistory(c){
+ history=history.filter(x=>x.key!==key(c));
+ history.unshift({key:key(c),title:c.title,media:c.media,extent:c.extent,category:c.category,year:c.year,at:Date.now()});
+ saveHistory();
+}
+function card(c){
+ const art=document.createElement("article"); art.className="card"; art.dataset.key=key(c);
+ art.innerHTML=`<div class="thumb"><span class="media">${c.media}</span><span class="play">▶</span><span class="extent">${c.extent}</span></div>
+ <div class="cardbody"><div class="avatar">${c.media==="テレビ"?"TV":"RAD"}</div><div><div class="ctitle"></div><div class="meta">${c.category}${c.year?" ・ "+c.year+"年度":""}</div></div><button class="star ${favs.has(key(c))?"on":""}" aria-label="お気に入り">${favs.has(key(c))?"★":"☆"}</button></div>`;
+ art.querySelector(".ctitle").textContent=c.title;
+ art.querySelector(".thumb").onclick=()=>openWatch(c);
+ art.querySelector(".ctitle").onclick=()=>openWatch(c);
+ art.querySelector(".star").onclick=e=>{e.stopPropagation(); toggleFav(c); render()};
+ return art;
+}
+function sourceList(){
+ if(state.view==="history"){
+   return history.map(h=>OUJ_COURSES.find(c=>key(c)===h.key)).filter(Boolean);
+ }
+ if(state.view==="favorites") return OUJ_COURSES.filter(c=>favs.has(key(c)));
+ let xs=[...OUJ_COURSES];
+ if(state.q){const terms=norm(state.q).split(/[、, ]+/).filter(Boolean);xs=xs.filter(c=>terms.every(t=>norm(c.title+" "+c.category).includes(t)))}
+ if(state.media) xs=xs.filter(c=>c.media===state.media);
+ if(state.extent) xs=xs.filter(c=>c.extent===state.extent);
+ xs.sort((a,b)=>(b.year||0)-(a.year||0)||a.title.localeCompare(b.title,"ja"));
+ return xs;
+}
+function render(){
+ const xs=sourceList();
+ $("#feed").innerHTML="";
+ xs.slice(0,120).forEach(c=>$("#feed").appendChild(card(c)));
+ $("#count").textContent=xs.length+"件";
+ $("#viewTitle").textContent=state.view==="history"?"再生履歴":state.view==="favorites"?"お気に入り":state.q?"検索結果":"おすすめ / 新しい授業";
+ $("#homeQ").value=state.q;
+}
+function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
+function openWatch(c){
+ state.selected=c;addHistory(c);
+ $("#watchBarTitle").textContent=c.title;$("#watchTitle").textContent=c.title;
+ $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
+ $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
+ $("#player").innerHTML=`<div class="playerStart"><button class="big" id="startPlayer">▶</button><p>公式OCWプレーヤーを読み込みます。科目名はタップ時にコピーできます。</p><a href="${PLAYER}" target="_blank" rel="noopener" style="color:#9db6ff">公式で開く</a></div>`;
+ $("#watch").classList.remove("hidden");$("#watch").setAttribute("aria-hidden","false");
+ $("#startPlayer").onclick=async()=>{
+   try{await navigator.clipboard.writeText(titleBase(c.title))}catch(e){}
+   $("#player").innerHTML=`<iframe src="${PLAYER}" title="放送大学公式OCWプレーヤー" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+ };
+ history.push; render();
+}
+$("#closeWatch").onclick=()=>{$("#watch").classList.add("hidden");$("#player").innerHTML=""};
+$("#watchFav").onclick=()=>{if(state.selected){toggleFav(state.selected);$("#watchFav").textContent=(favs.has(key(state.selected))?"★":"☆")+" お気に入り";render()}};
+$("#copyTitle").onclick=async()=>{if(!state.selected)return;await navigator.clipboard.writeText(titleBase(state.selected.title));$("#copyTitle").textContent="コピー済み";setTimeout(()=>$("#copyTitle").textContent="題名コピー",900)};
+$("#homeQ").addEventListener("input",e=>{state.q=e.target.value;state.view="search";$$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.view==="search"));render()});
+$$(".nav").forEach(n=>n.onclick=()=>{state.view=n.dataset.view;if(state.view==="home")state.q="";$$(".nav").forEach(x=>x.classList.toggle("on",x===n));render();scrollTo(0,0)});
+$$(".chip").forEach(ch=>ch.onclick=()=>{
+ if(ch.dataset.media!==undefined){state.media=ch.dataset.media;$$("[data-media]").forEach(x=>x.classList.toggle("on",x===ch));}
+ if(ch.dataset.extent!==undefined){state.extent=state.extent? "":ch.dataset.extent;ch.classList.toggle("on",!!state.extent)}
+ render();
+});
+function online(){ $("#offline").classList.toggle("on",!navigator.onLine)} addEventListener("online",online);addEventListener("offline",online);online();
+
+let deferredPrompt=null;
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("#installBtn").style.display="block"});
+$("#installBtn").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installBtn").style.display="none"};
+if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+render();
+</script>
+</body></html>
