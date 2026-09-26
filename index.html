@@ -64,6 +64,17 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .enrolledMissing .enrolledBadge{background:#f2f4f7;color:#475467}
 .enrolledMark{position:absolute;left:9px;bottom:9px;background:#eaf1ffff;color:#174ea6;border:1px solid #cbdcff;padding:4px 7px;border-radius:6px;font-size:11px;font-weight:800}
 @media(min-width:600px){.enrolledRail{grid-auto-columns:minmax(240px,42%)}}
+
+/* enrolled progress */
+.enrolledStatus{font-size:12px;color:var(--muted);line-height:1.5}
+.enrolledActions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:2px}
+.enrolledContinue{border:0;border-radius:10px;background:var(--blue);color:#fff;padding:9px 10px;font-size:12px;font-weight:800}
+.enrolledSelect{max-width:112px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text);padding:8px 7px;font-size:12px}
+.progressConfirm{position:fixed;z-index:90;left:12px;right:12px;bottom:calc(76px + var(--safe-b));max-width:720px;margin:auto;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px #1018282b;padding:13px}
+.progressConfirmText{font-size:13px;font-weight:750;line-height:1.45;margin-bottom:10px}
+.progressConfirmActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.progressConfirmActions button{border-radius:10px;padding:10px;border:1px solid var(--line);font-weight:800;background:#fff;color:var(--text)}
+.progressConfirmActions .done{border-color:var(--blue);background:var(--blue);color:#fff}
 </style>
 </head>
 <body>
@@ -94,6 +105,14 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
  <button class="nav" data-view="history"><b>◷</b><span>履歴</span></button>
  <button class="nav" data-view="favorites"><b>★</b><span>お気に入り</span></button>
 </nav>
+
+<div id="progressConfirm" class="progressConfirm hidden" role="dialog" aria-live="polite">
+  <div id="progressConfirmText" class="progressConfirmText"></div>
+  <div class="progressConfirmActions">
+    <button id="progressNotYet">まだ</button>
+    <button id="progressDone" class="done">見た</button>
+  </div>
+ </div>
 
 <section id="watch" class="watch hidden" aria-hidden="true">
  <div class="watchtop"><button id="closeWatch">‹</button><strong id="watchBarTitle"></strong></div>
@@ -136,6 +155,53 @@ const ENROLLED_TITLES=[
  "日本語リテラシー演習"
 ];
 const enrolledBaseSet=new Set(ENROLLED_TITLES.map(norm));
+const PROGRESS_KEY="ouj-enrolled-progress-v1";
+let enrolledProgress={};
+try{enrolledProgress=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"{}")}catch(e){}
+function progressId(base){return norm(base)}
+function getProgress(base){return enrolledProgress[progressId(base)]||{}}
+function saveProgress(){localStorage.setItem(PROGRESS_KEY,JSON.stringify(enrolledProgress))}
+function patchProgress(base,patch){
+  const id=progressId(base);
+  enrolledProgress[id]={...(enrolledProgress[id]||{}),...patch};
+  saveProgress();
+}
+function nextEpisode(base){
+  const p=getProgress(base), last=Number(p.lastEpisode)||0;
+  return last>=15?15:last+1;
+}
+function progressText(base){
+  const p=getProgress(base), last=Number(p.lastEpisode)||0;
+  if(last>=15)return "前回：第15回 ・ 全15回視聴";
+  if(last>0)return "前回：第"+last+"回 ・ 続き：第"+(last+1)+"回";
+  return "前回：未記録 ・ 続き：第1回";
+}
+function pendingProgress(){
+  for(const base of ENROLLED_TITLES){
+    const p=getProgress(base);
+    if(Number(p.pendingEpisode)>0)return {base,episode:Number(p.pendingEpisode)};
+  }
+  return null;
+}
+function showProgressConfirm(){
+  const pending=pendingProgress();
+  const box=$("#progressConfirm");
+  if(!box)return;
+  if(!pending){box.classList.add("hidden");return}
+  $("#progressConfirmText").textContent="「"+pending.base+"」第"+pending.episode+"回を見ましたか？";
+  box.dataset.base=pending.base;
+  box.dataset.episode=String(pending.episode);
+  box.classList.remove("hidden");
+}
+function clearPending(base){
+  patchProgress(base,{pendingEpisode:null});
+  showProgressConfirm();
+}
+function completePending(base,episode){
+  patchProgress(base,{lastEpisode:episode,pendingEpisode:null,lastCompletedAt:Date.now()});
+  render();
+  showProgressConfirm();
+}
 function courseBase(c){return norm(titleBase(c.title).replace(/―.*―$/,""))}
 function isEnrolled(c){return enrolledBaseSet.has(courseBase(c))}
 function findEnrolledCourse(base){
@@ -224,17 +290,43 @@ function renderEnrolled(){
  $("#enrolledCount").textContent=ENROLLED_TITLES.length+"科目";
  ENROLLED_TITLES.forEach(base=>{
    const c=findEnrolledCourse(base);
-   const b=document.createElement("button");
-   b.className="enrolledCard"+(c?"":" enrolledMissing");
    const exactTitle=c?c.title:base;
    const direct=!!(c&&window.OUJ_LINKS&&window.OUJ_LINKS[c.title]);
-   b.innerHTML=`<span class="enrolledBadge">● 履修中</span><span class="enrolledTitle"></span><span class="enrolledMeta">${c?[c.media,c.extent].filter(Boolean).join(" ・ "):"WAKABAから視聴"}${direct?" ・ OCW":""}</span>`;
-   b.querySelector(".enrolledTitle").textContent=exactTitle;
-   b.onclick=()=>{
-     if(c&&direct) launchOfficial(c);
-     else window.open("https://www.ouj.ac.jp/for-students/","_blank","noopener");
+   const p=getProgress(base), next=nextEpisode(base);
+   const card=document.createElement("article");
+   card.className="enrolledCard"+(c?"":" enrolledMissing");
+   card.innerHTML=`<span class="enrolledBadge">● 履修中</span>
+     <span class="enrolledTitle"></span>
+     <span class="enrolledStatus"></span>
+     <span class="enrolledMeta">${c?[c.media,c.extent].filter(Boolean).join(" ・ "):"WAKABAから視聴"}${direct?" ・ OCW":""}</span>
+     <div class="enrolledActions">
+       <button class="enrolledContinue"></button>
+       <select class="enrolledSelect" aria-label="最後に見た回を記録"></select>
+     </div>`;
+   card.querySelector(".enrolledTitle").textContent=exactTitle;
+   card.querySelector(".enrolledStatus").textContent=progressText(base);
+   const go=card.querySelector(".enrolledContinue");
+   go.textContent=(Number(p.lastEpisode)>=15?"▶ 第15回を開く":"▶ 続きから 第"+next+"回");
+   const sel=card.querySelector(".enrolledSelect");
+   sel.innerHTML='<option value="">前回を記録</option>'+Array.from({length:15},(_,i)=>`<option value="${i+1}">第${i+1}回</option>`).join("");
+   if(Number(p.lastEpisode)>0)sel.value=String(p.lastEpisode);
+   sel.onchange=()=>{
+     if(!sel.value)return;
+     patchProgress(base,{lastEpisode:Number(sel.value),pendingEpisode:null,lastCompletedAt:Date.now()});
+     render();
    };
-   rail.appendChild(b);
+   go.onclick=()=>{
+     const ep=nextEpisode(base);
+     patchProgress(base,{pendingEpisode:ep,lastOpenedEpisode:ep,lastOpenedAt:Date.now()});
+     if(c&&direct){
+       launchOfficial(c);
+     }else{
+       restorePending=true;
+       saveNavState(true);
+       window.open("https://www.ouj.ac.jp/for-students/","_blank","noopener");
+     }
+   };
+   rail.appendChild(card);
  });
 }
 function sourceList(){
@@ -306,6 +398,15 @@ $$(".chip").forEach(ch=>ch.onclick=()=>{
  render();
  saveNavState(false);
 });
+
+$("#progressDone").onclick=()=>{
+  const box=$("#progressConfirm"), base=box.dataset.base, ep=Number(box.dataset.episode);
+  if(base&&ep)completePending(base,ep);
+};
+$("#progressNotYet").onclick=()=>{
+  const box=$("#progressConfirm"), base=box.dataset.base;
+  if(base)clearPending(base);
+};
 addEventListener("popstate",()=>{if(location.hash!=="#watch")closeWatchUI()});
 addEventListener("scroll",()=>{
   clearTimeout(scrollSaveTimer);
@@ -314,10 +415,10 @@ addEventListener("scroll",()=>{
 addEventListener("pagehide",()=>saveNavState(restorePending));
 addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden") saveNavState(restorePending);
-  else if(restorePending) restoreScrollPosition(true);
+  else {if(restorePending) restoreScrollPosition(true); setTimeout(showProgressConfirm,180);}
 });
-addEventListener("pageshow",()=>{if(restorePending)restoreScrollPosition(true)});
-addEventListener("focus",()=>{if(restorePending)restoreScrollPosition(true)});
+addEventListener("pageshow",()=>{if(restorePending)restoreScrollPosition(true);setTimeout(showProgressConfirm,180)});
+addEventListener("focus",()=>{if(restorePending)restoreScrollPosition(true);setTimeout(showProgressConfirm,180)});
 function online(){ $("#offline").classList.toggle("on",!navigator.onLine)} addEventListener("online",online);addEventListener("offline",online);online();
 
 let deferredPrompt=null;
@@ -326,6 +427,7 @@ $("#installBtn").onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prom
 if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 render();
 restoreScrollPosition(true);
+setTimeout(showProgressConfirm,180);
 });
 </script>
 </body></html>
