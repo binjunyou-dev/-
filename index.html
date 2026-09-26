@@ -47,6 +47,22 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 @keyframes spin{to{transform:rotate(360deg)}}
 .officialFloat{position:absolute;right:10px;top:10px;z-index:3;text-decoration:none;background:#ffffffee;color:#111827;border:1px solid #d9dee7;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:800}
 .fastHint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.55}
+
+/* enrolled courses */
+.enrolledSection{margin:4px 0 18px}
+.enrolledHead{display:flex;align-items:end;justify-content:space-between;margin:4px 2px 9px}
+.enrolledHead h2{font-size:19px;margin:0}
+.enrolledHead span{font-size:12px;color:var(--muted)}
+.enrolledRail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,78%);gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 1px 8px;scrollbar-width:none}
+.enrolledRail::-webkit-scrollbar{display:none}
+.enrolledCard{scroll-snap-align:start;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:15px;padding:13px;text-align:left;min-height:116px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 2px #1018280a;cursor:pointer}
+.enrolledCard:active{transform:scale(.99)}
+.enrolledBadge{display:inline-flex;align-items:center;width:max-content;gap:5px;background:#eaf1ff;color:#174ea6;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800}
+.enrolledTitle{font-size:15px;font-weight:850;line-height:1.42}
+.enrolledMeta{margin-top:auto;color:var(--muted);font-size:11px}
+.enrolledMissing .enrolledBadge{background:#f2f4f7;color:#475467}
+.enrolledMark{position:absolute;left:9px;bottom:9px;background:#eaf1ffff;color:#174ea6;border:1px solid #cbdcff;padding:4px 7px;border-radius:6px;font-size:11px;font-weight:800}
+@media(min-width:600px){.enrolledRail{grid-auto-columns:minmax(240px,42%)}}
 </style>
 </head>
 <body>
@@ -62,6 +78,10 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
   <div class="search"><input id="homeQ" type="search" placeholder="授業を検索：哲学、文学、心理、ユング…">
    <div class="chips" id="mediaChips"><button class="chip on" data-media="">すべて</button><button class="chip" data-media="テレビ">テレビ</button><button class="chip" data-media="ラジオ">ラジオ</button><button class="chip" data-extent="全15回">全15回公開</button></div>
   </div>
+  <section id="enrolledSection" class="enrolledSection">
+    <div class="enrolledHead"><h2>履修中</h2><span id="enrolledCount"></span></div>
+    <div id="enrolledRail" class="enrolledRail"></div>
+   </section>
   <div class="sectionhead"><h2 id="viewTitle">おすすめ / 新しい授業</h2><span id="count" class="count"></span></div>
   <div id="feed" class="feed"></div>
  </section>
@@ -164,12 +184,35 @@ function addHistory(c){
 function card(c){
  const art=document.createElement("article"); art.className="card"; art.dataset.key=key(c);
  art.innerHTML=`<div class="thumb"><span class="media">${c.media}</span><span class="play">▶</span><span class="extent">${c.extent}</span></div>
- <div class="cardbody"><div class="avatar">${c.media==="テレビ"?"TV":"RAD"}</div><div><div class="ctitle"></div><div class="meta">${c.category}${c.year?" ・ "+c.year+"年度":""}</div></div><button class="star ${favs.has(key(c))?"on":""}" aria-label="お気に入り">${favs.has(key(c))?"★":"☆"}</button></div>`;
+ ${isEnrolled(c)?`<span class="enrolledMark">履修中</span>`:""}<div class="cardbody"><div class="avatar">${c.media==="テレビ"?"TV":"RAD"}</div><div><div class="ctitle"></div><div class="meta">${c.category}${c.year?" ・ "+c.year+"年度":""}</div></div><button class="star ${favs.has(key(c))?"on":""}" aria-label="お気に入り">${favs.has(key(c))?"★":"☆"}</button></div>`;
  art.querySelector(".ctitle").textContent=c.title;
  art.querySelector(".thumb").onclick=()=>launchOfficial(c);
  art.querySelector(".ctitle").onclick=()=>launchOfficial(c);
  art.querySelector(".star").onclick=e=>{e.stopPropagation(); toggleFav(c); render()};
  return art;
+}
+function renderEnrolled(){
+ const section=$("#enrolledSection"), rail=$("#enrolledRail");
+ if(!section||!rail)return;
+ const show=state.view==="home"&&!state.q&&!state.media&&!state.extent;
+ section.classList.toggle("hidden",!show);
+ if(!show)return;
+ rail.innerHTML="";
+ $("#enrolledCount").textContent=ENROLLED_TITLES.length+"科目";
+ ENROLLED_TITLES.forEach(base=>{
+   const c=findEnrolledCourse(base);
+   const b=document.createElement("button");
+   b.className="enrolledCard"+(c?"":" enrolledMissing");
+   const exactTitle=c?c.title:base;
+   const direct=!!(c&&window.OUJ_LINKS&&window.OUJ_LINKS[c.title]);
+   b.innerHTML=`<span class="enrolledBadge">● 履修中</span><span class="enrolledTitle"></span><span class="enrolledMeta">${c?[c.media,c.extent].filter(Boolean).join(" ・ "):"WAKABAから視聴"}${direct?" ・ OCW":""}</span>`;
+   b.querySelector(".enrolledTitle").textContent=exactTitle;
+   b.onclick=()=>{
+     if(c&&direct) launchOfficial(c);
+     else window.open("https://www.ouj.ac.jp/for-students/","_blank","noopener");
+   };
+   rail.appendChild(b);
+ });
 }
 function sourceList(){
  if(state.view==="history"){
@@ -180,15 +223,18 @@ function sourceList(){
  if(state.q){const terms=norm(state.q).split(/[、, ]+/).filter(Boolean);xs=xs.filter(c=>terms.every(t=>norm(c.title+" "+c.category).includes(t)))}
  if(state.media) xs=xs.filter(c=>c.media===state.media);
  if(state.extent) xs=xs.filter(c=>c.extent===state.extent);
- xs.sort((a,b)=>(b.year||0)-(a.year||0)||a.title.localeCompare(b.title,"ja"));
+ xs.sort((a,b)=>(Number(isEnrolled(b))-Number(isEnrolled(a)))||(b.year||0)-(a.year||0)||a.title.localeCompare(b.title,"ja"));
  return xs;
 }
 function render(){
- const xs=sourceList();
+ const all=sourceList();
+ const pinnedHome=state.view==="home"&&!state.q&&!state.media&&!state.extent;
+ const xs=pinnedHome?all.filter(c=>!isEnrolled(c)):all;
+ renderEnrolled();
  $("#feed").innerHTML="";
  xs.slice(0,120).forEach(c=>$("#feed").appendChild(card(c)));
- $("#count").textContent=xs.length+"件";
- $("#viewTitle").textContent=state.view==="history"?"再生履歴":state.view==="favorites"?"お気に入り":state.q?"検索結果":"おすすめ / 新しい授業";
+ $("#count").textContent=(pinnedHome?"その他 ":"")+xs.length+"件";
+ $("#viewTitle").textContent=state.view==="history"?"再生履歴":state.view==="favorites"?"お気に入り":state.q?"検索結果":pinnedHome?"その他の授業":"おすすめ / 新しい授業";
  syncControls();
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
