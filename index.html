@@ -34,6 +34,19 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .watchinfo{padding:15px}.watchinfo h1{font-size:20px;line-height:1.45;margin:0 0 7px}.watchmeta{color:var(--muted);font-size:13px}.watchactions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.watchactions button,.watchactions a{border:0;text-decoration:none;text-align:center;background:var(--panel2);color:#fff;border-radius:12px;padding:11px 7px;font-size:12px;font-weight:700}.notice{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:12px;color:#cbd5e1;line-height:1.6}
 .offline{display:none;font-size:11px;background:#7f1d1d;padding:5px 8px;border-radius:8px}.offline.on{display:block}
 @media(min-width:700px){.feed{grid-template-columns:1fr 1fr}.watch{left:50%;transform:translateX(-50%);max-width:760px;box-shadow:0 0 0 100vw #0008}}
+
+/* v6 fast player */
+.card{content-visibility:auto;contain-intrinsic-size:360px 430px}
+.thumb{touch-action:manipulation}
+.watch{overscroll-behavior:contain}
+.player{background:#05070a;overflow:hidden}
+.player iframe{background:#05070a}
+.playerLoading{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#05070a;color:#cbd5e1;text-align:center;padding:24px;transition:opacity .18s ease}
+.playerLoading.hide{opacity:0;pointer-events:none}
+.spinner{width:34px;height:34px;border:3px solid #334155;border-top-color:#8aa5ff;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.officialFloat{position:absolute;right:10px;top:10px;z-index:3;text-decoration:none;background:#111827e8;color:#fff;border:1px solid #374151;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:800}
+.fastHint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.55}
 </style>
 </head>
 <body>
@@ -68,17 +81,14 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
   <h1 id="watchTitle"></h1><div id="watchMeta" class="watchmeta"></div>
   <div class="watchactions">
    <button id="watchFav">☆ お気に入り</button>
-   <button id="copyTitle">題名コピー</button>
+   <a id="officialOpen" href="#" target="_blank" rel="noopener">↗ 公式で開く</a>
    <a href="https://www.ouj.ac.jp/for-students/" target="_blank" rel="noopener">WAKABA</a>
   </div>
-  <div class="notice">
-   <b>再生について</b><br>
-   「再生」を押すと、放送大学の公式OCWプレーヤーをこの画面内に読み込みます。ブラウザ側のフレーム制限等で表示できない場合は「公式で開く」を利用してください。<br>
-   在学生向け全科目・全回視聴は WAKABA → 学内リンク → 放送授業のインターネット配信を利用します。映像・音声はこのアプリには保存しません。
-  </div>
+  <div class="fastHint">科目を開くと、その科目専用の放送大学公式プレーヤーを直接読み込みます。表示されない場合は「公式で開く」を押してください。</div>
  </div>
 </section>
 
+<script src="./course-links.js"></script>
 <script src="./courses.js"></script>
 <script>
 window.OUJ_READY.then(()=>{
@@ -133,20 +143,31 @@ function render(){
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
 function openWatch(c){
  state.selected=c;addHistory(c);
- $("#watchBarTitle").textContent=c.title;$("#watchTitle").textContent=c.title;
+ const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
+ $("#watchBarTitle").textContent=c.title;
+ $("#watchTitle").textContent=c.title;
  $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
- $("#player").innerHTML=`<div class="playerStart"><button class="big" id="startPlayer">▶</button><p>公式OCWプレーヤーを読み込みます。科目名はタップ時にコピーできます。</p><a href="${PLAYER}" target="_blank" rel="noopener" style="color:#9db6ff">公式で開く</a></div>`;
- $("#watch").classList.remove("hidden");$("#watch").setAttribute("aria-hidden","false");
- $("#startPlayer").onclick=async()=>{
-   try{await navigator.clipboard.writeText(titleBase(c.title))}catch(e){}
-   $("#player").innerHTML=`<iframe src="${PLAYER}" title="放送大学公式OCWプレーヤー" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
- };
- history.push; render();
+ $("#officialOpen").href=url;
+ $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div><a class="officialFloat" href="${url}" target="_blank" rel="noopener">↗ 公式</a>`;
+ $("#watch").classList.remove("hidden");
+ $("#watch").setAttribute("aria-hidden","false");
+ document.body.style.overflow="hidden";
+ const frame=$("#courseFrame"), loading=$("#playerLoading");
+ const done=()=>setTimeout(()=>loading&&loading.classList.add("hide"),120);
+ frame.addEventListener("load",done,{once:true});
+ setTimeout(done,2200);
+ if(location.hash!=="#watch") window.history.pushState({oujWatch:true},"","#watch");
+ render();
 }
-$("#closeWatch").onclick=()=>{$("#watch").classList.add("hidden");$("#player").innerHTML=""};
+function closeWatchUI(){
+ $("#watch").classList.add("hidden");
+ $("#watch").setAttribute("aria-hidden","true");
+ $("#player").innerHTML="";
+ document.body.style.overflow="";
+}
+$("#closeWatch").onclick=()=>{closeWatchUI();if(location.hash==="#watch")window.history.back()};
 $("#watchFav").onclick=()=>{if(state.selected){toggleFav(state.selected);$("#watchFav").textContent=(favs.has(key(state.selected))?"★":"☆")+" お気に入り";render()}};
-$("#copyTitle").onclick=async()=>{if(!state.selected)return;await navigator.clipboard.writeText(titleBase(state.selected.title));$("#copyTitle").textContent="コピー済み";setTimeout(()=>$("#copyTitle").textContent="題名コピー",900)};
 $("#homeQ").addEventListener("input",e=>{state.q=e.target.value;state.view="search";$$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.view==="search"));render()});
 $$(".nav").forEach(n=>n.onclick=()=>{state.view=n.dataset.view;if(state.view==="home")state.q="";$$(".nav").forEach(x=>x.classList.toggle("on",x===n));render();scrollTo(0,0)});
 $$(".chip").forEach(ch=>ch.onclick=()=>{
@@ -154,6 +175,7 @@ $$(".chip").forEach(ch=>ch.onclick=()=>{
  if(ch.dataset.extent!==undefined){state.extent=state.extent? "":ch.dataset.extent;ch.classList.toggle("on",!!state.extent)}
  render();
 });
+addEventListener("popstate",()=>{if(location.hash!=="#watch")closeWatchUI()});
 function online(){ $("#offline").classList.toggle("on",!navigator.onLine)} addEventListener("online",online);addEventListener("offline",online);online();
 
 let deferredPrompt=null;
