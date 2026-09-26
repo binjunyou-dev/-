@@ -84,7 +84,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <a id="officialOpen" href="#" target="_blank" rel="noopener">↗ 公式で開く</a>
    <a href="https://www.ouj.ac.jp/for-students/" target="_blank" rel="noopener">WAKABA</a>
   </div>
-  <div class="fastHint">科目を開くと、その科目専用の放送大学公式プレーヤーを直接読み込みます。表示されない場合は「公式で開く」を押してください。</div>
+  <div class="fastHint">再生は放送大学公式プレーヤーで開きます。アプリ内埋め込みは使用しません。</div>
  </div>
 </section>
 
@@ -115,8 +115,8 @@ function card(c){
  art.innerHTML=`<div class="thumb"><span class="media">${c.media}</span><span class="play">▶</span><span class="extent">${c.extent}</span></div>
  <div class="cardbody"><div class="avatar">${c.media==="テレビ"?"TV":"RAD"}</div><div><div class="ctitle"></div><div class="meta">${c.category}${c.year?" ・ "+c.year+"年度":""}</div></div><button class="star ${favs.has(key(c))?"on":""}" aria-label="お気に入り">${favs.has(key(c))?"★":"☆"}</button></div>`;
  art.querySelector(".ctitle").textContent=c.title;
- art.querySelector(".thumb").onclick=()=>openWatch(c);
- art.querySelector(".ctitle").onclick=()=>openWatch(c);
+ art.querySelector(".thumb").onclick=()=>launchOfficial(c);
+ art.querySelector(".ctitle").onclick=()=>launchOfficial(c);
  art.querySelector(".star").onclick=e=>{e.stopPropagation(); toggleFav(c); render()};
  return art;
 }
@@ -141,6 +141,15 @@ function render(){
  $("#homeQ").value=state.q;
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
+function launchOfficial(c){
+  addHistory(c);
+  render();
+  const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
+  // External OUJ player is intentionally opened outside the PWA frame.
+  // This avoids OUJ's player stalling inside a nested third-party iframe.
+  const w=window.open(url,"_blank","noopener");
+  if(!w) window.location.href=url;
+}
 function openWatch(c){
  state.selected=c;addHistory(c);
  const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
