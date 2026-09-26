@@ -49,6 +49,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .fastHint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.55}
 
 /* enrolled courses */
+.card{position:relative}
 .enrolledSection{margin:4px 0 18px}
 .enrolledHead{display:flex;align-items:end;justify-content:space-between;margin:4px 2px 9px}
 .enrolledHead h2{font-size:19px;margin:0}
@@ -119,6 +120,28 @@ const $$=s=>[...document.querySelectorAll(s)];
 const norm=s=>(s||"").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
 const key=c=>c.title+"|"+c.media+"|"+c.extent;
 const titleBase=s=>s.replace(/（'\d{2}）/,"").trim();
+const ENROLLED_TITLES=[
+ "西洋哲学の根源",
+ "世界文学の古典を読む",
+ "哲学・思想を今考える",
+ "文学批評への招待",
+ "日本語リテラシー",
+ "ヨーロッパ文学の読み方－近代篇",
+ "より良い思考の技法",
+ "日本語アカデミックライティング",
+ "シン・ビートルズ de 英文法",
+ "歴史のなかの人間",
+ "英米哲学の挑戦",
+ "世界文学への招待",
+ "日本語リテラシー演習"
+];
+const enrolledBaseSet=new Set(ENROLLED_TITLES.map(norm));
+function courseBase(c){return norm(titleBase(c.title).replace(/―.*―$/,""))}
+function isEnrolled(c){return enrolledBaseSet.has(courseBase(c))}
+function findEnrolledCourse(base){
+  const n=norm(base);
+  return OUJ_COURSES.find(c=>courseBase(c)===n)||null;
+}
 const favs=new Set(JSON.parse(localStorage.getItem("ouj-favs")||"[]"));
 let history=JSON.parse(localStorage.getItem("ouj-history")||"[]");
 const NAV_KEY="ouj-nav-state-v1";
