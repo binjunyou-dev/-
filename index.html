@@ -347,6 +347,24 @@ function render(){
  syncControls();
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
+function warmOfficialPlayer(){
+ if($("#courseFrame"))return;
+ const pool=document.createElement("div");
+ pool.id="ocwPool";
+ pool.setAttribute("aria-hidden","true");
+ pool.style.cssText="position:fixed;left:-2px;bottom:-2px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
+ const frame=document.createElement("iframe");
+ frame.id="courseFrame";
+ frame.src=PLAYER;
+ frame.title="公式OCWプレーヤー";
+ frame.allow="autoplay; fullscreen; picture-in-picture";
+ frame.allowFullscreen=true;
+ frame.addEventListener("load",()=>frame.dataset.warm="ready",{once:true});
+ pool.appendChild(frame);
+ document.body.appendChild(pool);
+}
+setTimeout(warmOfficialPlayer,800);
+
 function launchOfficial(c){ openWatch(c); }
 function openWatch(c){
  state.selected=c;addHistory(c);
@@ -358,20 +376,28 @@ function openWatch(c){
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
   $("#player").classList.remove("playerExpanded");
  $("#togglePlayerSize").textContent="全画面で見る";
- $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div>`;
+ const existingFrame=$("#courseFrame");
+ if(existingFrame){
+  $("#player").appendChild(existingFrame);
+  $("#player").insertAdjacentHTML("beforeend",'<div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを準備中…</div></div></div>');
+ }else  $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div>`;
  $("#watch").classList.remove("hidden");
  $("#watch").setAttribute("aria-hidden","false");
  document.body.style.overflow="hidden";
  const frame=$("#courseFrame"), loading=$("#playerLoading");
+ const wasWarm=frame.dataset.warm==="ready";
+ if(!frame.dataset.courseUrl){if(frame.src!==url)frame.src=url;frame.dataset.courseUrl=url;}else if(frame.dataset.courseUrl!==url){frame.src=url;frame.dataset.courseUrl=url;}
  const done=()=>setTimeout(()=>loading&&loading.classList.add("hide"),120);
- frame.addEventListener("load",done,{once:true});
- setTimeout(done,2200);
+ frame.addEventListener("load",()=>{frame.dataset.warm="ready";done()},{once:true});
+ if(wasWarm)done(); else setTimeout(done,2200);
  if(location.hash!=="#watch") window.history.pushState({oujWatch:true},"","#watch");
  render();
 }
 function closeWatchUI(){
  $("#watch").classList.add("hidden");
  $("#watch").setAttribute("aria-hidden","true");
+ const frame=$("#courseFrame");
+ if(frame){const pool=$("#ocwPool")||document.body;pool.appendChild(frame);}
  $("#player").innerHTML="";
  document.body.style.overflow="";
 }
