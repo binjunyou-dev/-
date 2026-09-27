@@ -31,7 +31,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 /* watch */
 .watch{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:auto}.watchtop{position:sticky;top:0;z-index:5;display:flex;align-items:center;padding:8px;background:#fffffff2;border-bottom:1px solid var(--line)}.watchtop button{border:0;background:transparent;color:var(--text);font-size:25px;padding:8px}.watchtop strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .player{background:#000;aspect-ratio:16/9;position:relative;display:grid;place-items:center}.player iframe{width:100%;height:100%;border:0}.playerStart{text-align:center;padding:20px}.playerStart .big{display:inline-grid;place-items:center;width:68px;height:68px;border-radius:50%;background:var(--blue);font-size:31px;border:0;color:#fff;padding-left:5px}.playerStart p{font-size:12px;color:#d1d5db;max-width:330px}
-.watchinfo{padding:15px}.watchinfo h1{font-size:20px;line-height:1.45;margin:0 0 7px}.watchmeta{color:var(--muted);font-size:13px}.watchactions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.watchactions button,.watchactions a{border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--panel2);color:var(--text);border-radius:12px;padding:11px 7px;font-size:12px;font-weight:700}.notice{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:12px;color:var(--muted);line-height:1.6}
+.watchinfo{padding:15px}.watchinfo h1{font-size:20px;line-height:1.45;margin:0 0 7px}.watchmeta{color:var(--muted);font-size:13px}.watchactions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}.watchactions button{border:1px solid var(--line);text-decoration:none;text-align:center;background:var(--panel2);color:var(--text);border-radius:12px;padding:11px 7px;font-size:12px;font-weight:700}.notice{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:12px;color:var(--muted);line-height:1.6}
 .offline{display:none;font-size:11px;background:#fee2e2;color:#991b1b;padding:5px 8px;border-radius:8px}.offline.on{display:block}
 @media(min-width:700px){.feed{grid-template-columns:1fr 1fr}.watch{left:50%;transform:translateX(-50%);max-width:760px;box-shadow:0 0 0 100vw #0008}}
 
@@ -45,7 +45,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .playerLoading.hide{opacity:0;pointer-events:none}
 .spinner{width:34px;height:34px;border:3px solid #334155;border-top-color:#8aa5ff;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.officialFloat{position:absolute;right:10px;top:10px;z-index:3;text-decoration:none;background:#ffffffee;color:#111827;border:1px solid #d9dee7;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:800}
+.playerExpanded{height:calc(100dvh - 58px);aspect-ratio:auto}
 .fastHint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.55}
 
 /* enrolled courses */
@@ -121,10 +121,9 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
   <h1 id="watchTitle"></h1><div id="watchMeta" class="watchmeta"></div>
   <div class="watchactions">
    <button id="watchFav">☆ お気に入り</button>
-   <a id="officialOpen" href="#" target="_blank" rel="noopener">↗ 公式で開く</a>
-   <a href="https://www.ouj.ac.jp/for-students/" target="_blank" rel="noopener">WAKABA</a>
+   <button id="togglePlayerSize">全画面で見る</button>
   </div>
-  <div class="fastHint">再生は放送大学公式プレーヤーで開きます。アプリ内埋め込みは使用しません。</div>
+  <div class="fastHint">公式OCWの科目ページをこのアプリ内に表示します。回を選んで再生してください。</div>
  </div>
 </section>
 
@@ -298,7 +297,7 @@ function renderEnrolled(){
    card.innerHTML=`<span class="enrolledBadge">● 履修中</span>
      <span class="enrolledTitle"></span>
      <span class="enrolledStatus"></span>
-     <span class="enrolledMeta">${c?[c.media,c.extent].filter(Boolean).join(" ・ "):"WAKABAから視聴"}${direct?" ・ OCW":""}</span>
+     <span class="enrolledMeta">${c?[c.media,c.extent].filter(Boolean).join(" ・ "):"公開OCW未掲載"}${direct?" ・ OCW":""}</span>
      <div class="enrolledActions">
        <button class="enrolledContinue"></button>
        <select class="enrolledSelect" aria-label="最後に見た回を記録"></select>
@@ -306,7 +305,8 @@ function renderEnrolled(){
    card.querySelector(".enrolledTitle").textContent=exactTitle;
    card.querySelector(".enrolledStatus").textContent=progressText(base);
    const go=card.querySelector(".enrolledContinue");
-   go.textContent=(Number(p.lastEpisode)>=15?"▶ 第15回を開く":"▶ 続きから 第"+next+"回");
+   go.textContent=!c?"公開OCW未掲載":(Number(p.lastEpisode)>=15?"▶ 第15回を開く":"▶ 続きから 第"+next+"回");
+   go.disabled=!c;
    const sel=card.querySelector(".enrolledSelect");
    sel.innerHTML='<option value="">前回を記録</option>'+Array.from({length:15},(_,i)=>`<option value="${i+1}">第${i+1}回</option>`).join("");
    if(Number(p.lastEpisode)>0)sel.value=String(p.lastEpisode);
@@ -318,13 +318,7 @@ function renderEnrolled(){
    go.onclick=()=>{
      const ep=nextEpisode(base);
      patchProgress(base,{pendingEpisode:ep,lastOpenedEpisode:ep,lastOpenedAt:Date.now()});
-     if(c&&direct){
-       launchOfficial(c);
-     }else{
-       restorePending=true;
-       saveNavState(true);
-       window.open("https://www.ouj.ac.jp/for-students/","_blank","noopener");
-     }
+     if(c) launchOfficial(c);
    };
    rail.appendChild(card);
  });
@@ -353,25 +347,18 @@ function render(){
  syncControls();
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
-function launchOfficial(c){
-  addHistory(c);
-  const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
-  restorePending=true;
-  saveNavState(true);
-  // External OUJ player is intentionally opened outside the PWA frame.
-  // Save search/filter/scroll context first so returning feels continuous.
-  const w=window.open(url,"_blank","noopener");
-  if(!w) window.location.href=url;
-}
+function launchOfficial(c){ openWatch(c); }
 function openWatch(c){
  state.selected=c;addHistory(c);
- const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||PLAYER;
+ saveNavState(false);
+ const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||(PLAYER+"#/navi/vod?se="+encodeURIComponent(titleBase(c.title)));
  $("#watchBarTitle").textContent=c.title;
  $("#watchTitle").textContent=c.title;
  $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
- $("#officialOpen").href=url;
- $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div><a class="officialFloat" href="${url}" target="_blank" rel="noopener">↗ 公式</a>`;
+  $("#player").classList.remove("playerExpanded");
+ $("#togglePlayerSize").textContent="全画面で見る";
+ $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div>`;
  $("#watch").classList.remove("hidden");
  $("#watch").setAttribute("aria-hidden","false");
  document.body.style.overflow="hidden";
@@ -390,6 +377,7 @@ function closeWatchUI(){
 }
 $("#closeWatch").onclick=()=>{closeWatchUI();if(location.hash==="#watch")window.history.back()};
 $("#watchFav").onclick=()=>{if(state.selected){toggleFav(state.selected);$("#watchFav").textContent=(favs.has(key(state.selected))?"★":"☆")+" お気に入り";render()}};
+$("#togglePlayerSize").onclick=()=>{const expanded=$("#player").classList.toggle("playerExpanded");$("#togglePlayerSize").textContent=expanded?"通常表示に戻す":"全画面で見る";if(expanded)$("#player").scrollIntoView({block:"start"});};
 $("#homeQ").addEventListener("input",e=>{state.q=e.target.value;state.view="search";render();saveNavState(false)});
 $$(".nav").forEach(n=>n.onclick=()=>{state.view=n.dataset.view;if(state.view==="home")state.q="";render();scrollTo(0,0);saveNavState(false)});
 $$(".chip").forEach(ch=>ch.onclick=()=>{
