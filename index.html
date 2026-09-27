@@ -357,7 +357,7 @@ const OCW_API="https://v.ouj.ac.jp/v1/tenants/1";
 let ocwGuestToken="";
 let ocwTokenPromise=null;
 let nativeHls=null;
-function apiCourseQuery(c){return String(c.title||"").replace(/[（(][^）)]*[\'’][0-9０-９]{2}[^）)]*[）)]/g,"").trim()}
+function apiCourseQueries(c){const base=String(c.title||"").replace(/[（(][^）)]*[\'’][0-9０-９]{2}[^）)]*[）)]/g,"").trim();const initials=(base.match(/[A-Z]{2,}/g)||[]).join(" ");return [...new Set([initials,base.replace(/[・／/]/g," "),base].filter(Boolean))]}
 function episodeNumber(item){const m=String(item.title||"").match(/第\s*([0-9０-９]+)\s*回/);return m?Number(m[1].normalize("NFKC")):0}
 async function getOcwGuestToken(){
  if(ocwGuestToken)return ocwGuestToken;
@@ -413,8 +413,11 @@ async function playNativeEpisode(item,c,button){
 async function loadNativeCourse(c){
  clearNativePlayer();setPlayerLoading("公式の公開回を探しています…");$("#episodePanel").innerHTML="";$("#playHint").textContent="公式の公開回だけをPWA内で直接再生します。";
  try{
-  const query=apiCourseQuery(c);
-  const data=await ocwApi("/vod-contents?q="+encodeURIComponent(query)+"&limit=30");
+  let data=[];
+  for(const query of apiCourseQueries(c)){
+   data=await ocwApi("/vod-contents?q="+encodeURIComponent(query)+"&limit=30");
+   if(Array.isArray(data)&&data.length)break;
+  }
   const items=(Array.isArray(data)?data:[]).map(item=>({...item,episode:episodeNumber(item)})).filter(item=>item.episode>0).sort((a,b)=>a.episode-b.episode);
   if(!items.length)throw new Error("公式OCWで公開中の回が見つかりませんでした");
   renderEpisodes(items,c);
