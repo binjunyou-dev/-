@@ -35,19 +35,25 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .offline{display:none;font-size:11px;background:#fee2e2;color:#991b1b;padding:5px 8px;border-radius:8px}.offline.on{display:block}
 @media(min-width:700px){.feed{grid-template-columns:1fr 1fr}.watch{left:50%;transform:translateX(-50%);max-width:760px;box-shadow:0 0 0 100vw #0008}}
 
-/* v6 fast player */
+/* v7 native player */
 .card{content-visibility:auto;contain-intrinsic-size:360px 430px}
 .thumb{touch-action:manipulation}
 .watch{overscroll-behavior:contain}
-.player{background:#05070a;overflow:hidden}
-.player iframe{background:#05070a}
-.playerLoading{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#ffffff;color:#475467;text-align:center;padding:24px;transition:opacity .18s ease}
-.playerLoading.hide{opacity:0;pointer-events:none}
-.spinner{width:34px;height:34px;border:3px solid #334155;border-top-color:#8aa5ff;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px}
+.player{background:#05070a;overflow:hidden;display:block}
+.player video{width:100%;height:100%;display:block;background:#05070a}
+.playerLoading{height:100%;display:grid;place-items:center;color:#e2e8f0;text-align:center;padding:24px}
+.spinner{width:34px;height:34px;border:3px solid #475569;border-top-color:#a5b4fc;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .playerExpanded{height:calc(100dvh - 58px);aspect-ratio:auto}
+.episodePanel{margin-top:14px;display:grid;gap:9px}
+.episodeHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;font-weight:800}
+.episodeHead span{font-size:11px;color:var(--muted);font-weight:600}
+.episodeList{display:flex;gap:8px;overflow:auto;padding:1px 0 4px;scrollbar-width:none}
+.episodeList::-webkit-scrollbar{display:none}
+.episodeList button{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:800}
+.episodeList button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.episodeError{font-size:12px;line-height:1.6;color:#b42318;background:#fef3f2;border:1px solid #fecdca;border-radius:12px;padding:11px}
 .fastHint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.55}
-
 /* enrolled courses */
 .card{position:relative}
 .enrolledSection{margin:4px 0 18px}
@@ -123,7 +129,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <button id="watchFav">☆ お気に入り</button>
    <button id="togglePlayerSize">全画面で見る</button>
   </div>
-  <div class="fastHint">公式OCWの科目ページをこのアプリ内に表示します。回を選んで再生してください。</div>
+  <div id="episodePanel" class="episodePanel"></div><div id="playHint" class="fastHint">公式の公開回を読み込みます。</div>
  </div>
 </section>
 
@@ -347,59 +353,90 @@ function render(){
  syncControls();
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
-function warmOfficialPlayer(){
- if($("#courseFrame"))return;
- const pool=document.createElement("div");
- pool.id="ocwPool";
- pool.setAttribute("aria-hidden","true");
- pool.style.cssText="position:fixed;left:-2px;bottom:-2px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
- const frame=document.createElement("iframe");
- frame.id="courseFrame";
- frame.src=PLAYER;
- frame.title="公式OCWプレーヤー";
- frame.allow="autoplay; fullscreen; picture-in-picture";
- frame.allowFullscreen=true;
- frame.addEventListener("load",()=>frame.dataset.warm="ready",{once:true});
- pool.appendChild(frame);
- document.body.appendChild(pool);
+const OCW_API="https://v.ouj.ac.jp/v1/tenants/1";
+let ocwGuestToken="";
+let ocwTokenPromise=null;
+let nativeHls=null;
+function apiCourseQuery(c){return String(c.title||"").replace(/[（(][^）)]*[\'’][0-9０-９]{2}[^）)]*[）)]/g,"").trim()}
+function episodeNumber(item){const m=String(item.title||"").match(/第\s*([0-9０-９]+)\s*回/);return m?Number(m[1].normalize("NFKC")):0}
+async function getOcwGuestToken(){
+ if(ocwGuestToken)return ocwGuestToken;
+ if(ocwTokenPromise)return ocwTokenPromise;
+ ocwTokenPromise=fetch(OCW_API+"/login/guest?ba=true",{method:"POST"}).then(r=>{if(!r.ok)throw new Error("公式配信への接続に失敗しました");return r.json()}).then(data=>{if(!data.bearerToken)throw new Error("公式配信の利用券を取得できませんでした");ocwGuestToken=data.bearerToken;return ocwGuestToken}).finally(()=>{ocwTokenPromise=null});
+ return ocwTokenPromise;
 }
-setTimeout(warmOfficialPlayer,800);
-
-function launchOfficial(c){ openWatch(c); }
+async function ocwApi(path,retry){
+ const token=await getOcwGuestToken();
+ const res=await fetch(OCW_API+path,{headers:{Authorization:"Bearer "+token}});
+ if(res.status===401&&!retry){ocwGuestToken="";return ocwApi(path,true)}
+ if(!res.ok)throw new Error("公式配信が応答しませんでした（"+res.status+"）");
+ return res.json();
+}
+function setPlayerLoading(message){$("#player").innerHTML='<div class="playerLoading"><div><div class="spinner"></div><div>'+message+'</div></div></div>'}
+function clearNativePlayer(){if(nativeHls){nativeHls.destroy();nativeHls=null}$("#player").innerHTML=""}
+function ensureHls(){
+ if(window.Hls)return Promise.resolve(window.Hls);
+ return new Promise((resolve,reject)=>{
+  const existing=document.querySelector("script[data-ouj-hls]");
+  if(existing){existing.addEventListener("load",()=>resolve(window.Hls),{once:true});existing.addEventListener("error",reject,{once:true});return}
+  const script=document.createElement("script");
+  script.dataset.oujHls="1";
+  script.src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js";
+  script.onload=()=>resolve(window.Hls);script.onerror=()=>reject(new Error("動画再生部品を読み込めませんでした"));document.head.appendChild(script);
+ })
+}
+function renderEpisodes(items,c){
+ const panel=$("#episodePanel");panel.innerHTML="";
+ const head=document.createElement("div");head.className="episodeHead";head.innerHTML="<strong>公開されている回</strong><span>"+items.length+"回</span>";panel.appendChild(head);
+ const list=document.createElement("div");list.className="episodeList";
+ items.forEach(item=>{const button=document.createElement("button");button.type="button";button.textContent="第"+item.episode+"回";button.onclick=()=>playNativeEpisode(item,c,button);list.appendChild(button)});
+ panel.appendChild(list);
+}
+async function playNativeEpisode(item,c,button){
+ const allButtons=$$(".episodeList button");allButtons.forEach(x=>x.classList.toggle("on",x===button));
+ clearNativePlayer();setPlayerLoading("第"+item.episode+"回を準備中…");
+ try{
+  const data=await ocwApi("/vod-contents/"+item.contentId+"/video-src?hls=true&region=JP");
+  const source=(data.x1_0VideoSource||data.x1_5VideoSource||{}).videoSrc;
+  if(!source)throw new Error("この回の動画URLを取得できませんでした");
+  $("#player").innerHTML='<video id="nativeVideo" controls playsinline preload="metadata"></video>';
+  const video=$("#nativeVideo");
+  if(video.canPlayType("application/vnd.apple.mpegurl")){video.src=source}else{const Hls=await ensureHls();if(!Hls||!Hls.isSupported())throw new Error("この端末は公式動画の再生形式に対応していません");nativeHls=new Hls({enableWorker:true,lowLatencyMode:false});nativeHls.loadSource(source);nativeHls.attachMedia(video)}
+  video.play().catch(()=>{});
+  const base=titleBase(c.title);if(isEnrolled(c))patchProgress(base,{pendingEpisode:item.episode,lastOpenedAt:Date.now()});
+  $("#playHint").textContent="第"+item.episode+"回を再生中。再生位置は端末のプレーヤー操作で調整できます。";
+ }catch(err){
+  setPlayerLoading("再生を始められませんでした");
+  $("#episodePanel").insertAdjacentHTML("beforeend",'<div class="episodeError">'+(err.message||"公式配信に接続できませんでした")+'</div>');
+ }
+}
+async function loadNativeCourse(c){
+ clearNativePlayer();setPlayerLoading("公式の公開回を探しています…");$("#episodePanel").innerHTML="";$("#playHint").textContent="公式の公開回だけをPWA内で直接再生します。";
+ try{
+  const query=apiCourseQuery(c);
+  const data=await ocwApi("/vod-contents?q="+encodeURIComponent(query)+"&limit=30");
+  const items=(Array.isArray(data)?data:[]).map(item=>({...item,episode:episodeNumber(item)})).filter(item=>item.episode>0).sort((a,b)=>a.episode-b.episode);
+  if(!items.length)throw new Error("公式OCWで公開中の回が見つかりませんでした");
+  renderEpisodes(items,c);
+  const target=isEnrolled(c)?nextEpisode(titleBase(c.title)):items[0].episode;
+  const first=items.find(item=>item.episode===target)||items[0];
+  const firstButton=$$(".episodeList button")[items.indexOf(first)];
+  playNativeEpisode(first,c,firstButton);
+ }catch(err){
+  setPlayerLoading("公開回を読み込めませんでした");
+  $("#episodePanel").innerHTML='<div class="episodeError">'+(err.message||"公式配信に接続できませんでした")+'</div>';
+ }
+}
+function launchOfficial(c){openWatch(c)}
 function openWatch(c){
- state.selected=c;addHistory(c);
- saveNavState(false);
- const url=(window.OUJ_LINKS&&window.OUJ_LINKS[c.title])||(PLAYER+"#/navi/vod?se="+encodeURIComponent(titleBase(c.title)));
- $("#watchBarTitle").textContent=c.title;
- $("#watchTitle").textContent=c.title;
- $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
- $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
-  $("#player").classList.remove("playerExpanded");
- $("#togglePlayerSize").textContent="全画面で見る";
- const existingFrame=$("#courseFrame");
- if(existingFrame){
-  $("#player").appendChild(existingFrame);
-  $("#player").insertAdjacentHTML("beforeend",'<div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを準備中…</div></div></div>');
- }else  $("#player").innerHTML=`<iframe id="courseFrame" src="${url}" title="${c.title.replace(/"/g,"&quot;")}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe><div id="playerLoading" class="playerLoading"><div><div class="spinner"></div><div>公式プレーヤーを読み込み中…</div></div></div>`;
- $("#watch").classList.remove("hidden");
- $("#watch").setAttribute("aria-hidden","false");
- document.body.style.overflow="hidden";
- const frame=$("#courseFrame"), loading=$("#playerLoading");
- const wasWarm=frame.dataset.warm==="ready";
- if(!frame.dataset.courseUrl){if(frame.src!==url)frame.src=url;frame.dataset.courseUrl=url;}else if(frame.dataset.courseUrl!==url){frame.src=url;frame.dataset.courseUrl=url;}
- const done=()=>setTimeout(()=>loading&&loading.classList.add("hide"),120);
- frame.addEventListener("load",()=>{frame.dataset.warm="ready";done()},{once:true});
- if(wasWarm)done(); else setTimeout(done,2200);
- if(location.hash!=="#watch") window.history.pushState({oujWatch:true},"","#watch");
- render();
+ state.selected=c;addHistory(c);saveNavState(false);
+ $("#watchBarTitle").textContent=c.title;$("#watchTitle").textContent=c.title;$("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
+ $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";$("#player").classList.remove("playerExpanded");$("#togglePlayerSize").textContent="全画面で見る";
+ $("#watch").classList.remove("hidden");$("#watch").setAttribute("aria-hidden","false");document.body.style.overflow="hidden";
+ if(location.hash!=="#watch")window.history.pushState({oujWatch:true},"","#watch");render();loadNativeCourse(c);
 }
 function closeWatchUI(){
- $("#watch").classList.add("hidden");
- $("#watch").setAttribute("aria-hidden","true");
- const frame=$("#courseFrame");
- if(frame){const pool=$("#ocwPool")||document.body;pool.appendChild(frame);}
- $("#player").innerHTML="";
- document.body.style.overflow="";
+ $("#watch").classList.add("hidden");$("#watch").setAttribute("aria-hidden","true");clearNativePlayer();$("#episodePanel").innerHTML="";document.body.style.overflow="";
 }
 $("#closeWatch").onclick=()=>{closeWatchUI();if(location.hash==="#watch")window.history.back()};
 $("#watchFav").onclick=()=>{if(state.selected){toggleFav(state.selected);$("#watchFav").textContent=(favs.has(key(state.selected))?"★":"☆")+" お気に入り";render()}};
