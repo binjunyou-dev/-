@@ -400,11 +400,29 @@ async function playNativeEpisode(item,c,button){
   const source=(data.x1_0VideoSource||data.x1_5VideoSource||{}).videoSrc;
   if(!source)throw new Error("この回の動画URLを取得できませんでした");
   $("#player").innerHTML='<video id="nativeVideo" controls playsinline preload="metadata"></video>';
-  const video=$("#nativeVideo");
-  if(video.canPlayType("application/vnd.apple.mpegurl")){video.src=source}else{const Hls=await ensureHls();if(!Hls||!Hls.isSupported())throw new Error("この端末は公式動画の再生形式に対応していません");nativeHls=new Hls({enableWorker:true,lowLatencyMode:false});nativeHls.loadSource(source);nativeHls.attachMedia(video)}
-  video.play().catch(()=>{});
-  const base=titleBase(c.title);if(isEnrolled(c))patchProgress(base,{pendingEpisode:item.episode,lastOpenedAt:Date.now()});
-  $("#playHint").textContent="第"+item.episode+"回を再生中。再生位置は端末のプレーヤー操作で調整できます。";
+  const video=$("#nativeVideo");let playbackFailed=false;
+  const markReady=()=>{
+   if(playbackFailed)return;
+   const base=titleBase(c.title);if(isEnrolled(c))patchProgress(base,{pendingEpisode:item.episode,lastOpenedAt:Date.now()});
+   $("#playHint").textContent="第"+item.episode+"回を読み込みました。再生位置は端末のプレーヤー操作で調整できます。";
+  };
+  const fail=message=>{
+   if(playbackFailed)return;playbackFailed=true;clearNativePlayer();setPlayerLoading("動画を読み込めませんでした");
+   $("#episodePanel").insertAdjacentHTML("beforeend",'<div class="episodeError">'+message+'</div>');
+  };
+  video.addEventListener("loadedmetadata",markReady,{once:true});
+  video.addEventListener("error",()=>fail("公式動画の読み込みに失敗しました。しばらくしてから、もう一度回を選んでください。"),{once:true});
+  const Hls=await ensureHls();
+  if(Hls&&Hls.isSupported()){
+   nativeHls=new Hls({enableWorker:true,lowLatencyMode:false,backBufferLength:90});
+   nativeHls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));
+   nativeHls.on(Hls.Events.ERROR,(_,detail)=>{if(detail.fatal)fail("公式動画の読み込みに失敗しました。しばらくしてから、もう一度回を選んでください。")});
+   nativeHls.loadSource(source);nativeHls.attachMedia(video);
+  }else if(video.canPlayType("application/vnd.apple.mpegurl")){
+   video.src=source;video.play().catch(()=>{});
+  }else{
+   throw new Error("この端末は公式動画の再生形式に対応していません");
+  }
  }catch(err){
   setPlayerLoading("再生を始められませんでした");
   $("#episodePanel").insertAdjacentHTML("beforeend",'<div class="episodeError">'+(err.message||"公式配信に接続できませんでした")+'</div>');
@@ -419,7 +437,7 @@ async function loadNativeCourse(c){
    if(Array.isArray(data)&&data.length)break;
   }
   const items=(Array.isArray(data)?data:[]).map(item=>({...item,episode:episodeNumber(item)})).filter(item=>item.episode>0).sort((a,b)=>a.episode-b.episode);
-  if(!items.length)throw new Error("公式OCWで公開中の回が見つかりませんでした");
+  if(!items.length)throw new Error("公式OCWの公開回は現在取得できません。科目データの公開表示と一致していない可能性があります");
   renderEpisodes(items,c);
   const target=isEnrolled(c)?nextEpisode(titleBase(c.title)):items[0].episode;
   const first=items.find(item=>item.episode===target)||items[0];
