@@ -313,8 +313,11 @@ function card(c){
  art.innerHTML=`<div class="thumb"><span class="media">${c.media}</span><span class="play" aria-hidden="true">↗</span><span class="extent">${c.extent}</span></div>
  ${isEnrolled(c)?`<span class="enrolledMark">履修中</span>`:""}<div class="cardbody"><div class="avatar">${c.media==="テレビ"?"TV":"RAD"}</div><div><div class="ctitle"></div><div class="meta">${c.category}${c.year?" ・ "+c.year+"年度":""}</div></div><button class="star ${favs.has(key(c))?"on":""}" aria-label="お気に入り">${favs.has(key(c))?"★":"☆"}</button></div>`;
  art.querySelector(".ctitle").textContent=c.title;
- art.querySelector(".thumb").onclick=()=>launchOfficial(c);
- art.querySelector(".ctitle").onclick=()=>launchOfficial(c);
+ art.onclick=e=>{if(!e.target.closest(".star"))launchOfficial(c)};
+ art.setAttribute("role","button");
+ art.setAttribute("tabindex","0");
+ art.setAttribute("aria-label",c.title+" の詳細を開く");
+ art.onkeydown=e=>{if(e.target===art&&(e.key==="Enter"||e.key===" ")){e.preventDefault();launchOfficial(c)}};
  art.querySelector(".star").onclick=e=>{e.stopPropagation(); toggleFav(c); render()};
  return art;
 }
@@ -344,7 +347,7 @@ function renderEnrolled(){
    card.querySelector(".enrolledTitle").textContent=exactTitle;
    card.querySelector(".enrolledStatus").textContent=progressText(base);
    const go=card.querySelector(".enrolledContinue");
-   go.textContent=!c?"公開OCW未掲載":(Number(p.lastEpisode)>=15?"科目ページを開く ↗":"第"+next+"回の科目ページへ ↗");
+   go.textContent=!c?"公開OCW未掲載":(Number(p.lastEpisode)>=15?"科目ページを開く ↗":"科目を開く（次：第"+next+"回）");
    go.disabled=!c;
    const sel=card.querySelector(".enrolledSelect");
    sel.innerHTML='<option value="">前回を記録</option>'+Array.from({length:15},(_,i)=>`<option value="${i+1}">第${i+1}回</option>`).join("");
