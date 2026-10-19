@@ -56,6 +56,8 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 .officialOpen:hover{background:#164cbe}
 .officialOpen:focus-visible,.watchactions a:focus-visible,.watchactions button:focus-visible{outline:3px solid #ffb547;outline-offset:3px}
 .officialHelp{font-size:12px;line-height:1.7;color:var(--muted);margin:12px 1px 1px}
+.directOpen{display:block;width:max-content;max-width:100%;font-size:12px;color:#205ee4;margin:13px auto 0;text-decoration:underline;text-underline-offset:3px;line-height:1.6;text-align:center}
+.directOpen:focus-visible{outline:3px solid #ffb547;outline-offset:3px}
 .progressSection{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:14px}
 .progressHead{font-weight:800;font-size:15px;margin-bottom:8px}
 .progressDescription{font-size:13px;line-height:1.7;color:var(--muted)}
@@ -148,7 +150,8 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <a id="officialOpen" class="officialOpen" href="https://www.ouj.ac.jp/reasons-to-choose-us/ocw/" target="_blank" rel="noopener noreferrer">
     <span id="officialOpenText">公式サイトで科目を開く</span><span class="externalIcon" aria-hidden="true">↗</span>
    </a>
-   <p id="officialHelp" class="officialHelp">別画面で公式サイトが開きます。公開されている回を選んで視聴してください。</p>
+   <p id="officialHelp" class="officialHelp">放送大学の公式OCW一覧を開きます。科目名を探してタップしてください。</p>
+   <a id="officialDirect" class="directOpen hidden" target="_blank" rel="noopener noreferrer">科目別ページを直接開く（表示できない場合あり）↗</a>
   </div>
   <section id="progressSection" class="progressSection hidden" aria-label="視聴進捗の記録">
    <div class="progressHead" id="progressHead">視聴記録</div>
@@ -415,14 +418,17 @@ function openWatch(c){
  $("#watchTitle").textContent=c.title;
  $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
- const url=officialCourseUrl(c), enrolled=isEnrolled(c);
+ const direct=officialCourseUrl(c), enrolled=isEnrolled(c);
  const link=$("#officialOpen");
- link.href=url||OCW;
- $("#officialLabel").textContent=url?"この科目の公式配信ページ":"公式OCWで科目を探す";
- $("#officialOpenText").textContent=url?"公式サイトで科目を開く":"公式OCW一覧を開く";
- $("#officialHelp").textContent=url
-  ? "別画面で放送大学の公式ページが開きます。公開されている回を選んで視聴してください。"
-  : "この科目の個別リンクは未登録です。公式OCW一覧で科目名を検索してください。";
+ // Always enter from the verified public OCW index. The deep course links can show "No results found" without an official session.
+ link.href=OCW+"#:~:text="+encodeURIComponent(c.title);
+ $("#officialLabel").textContent="放送大学公式OCW";
+ $("#officialOpenText").textContent="公式OCWでこの科目を探す";
+ $("#officialHelp").textContent="大学の公式OCW一覧が開きます。科目名をタップして視聴してください。Chromeでは該当科目へ自動スクロールする場合があります。";
+ const secondary=$("#officialDirect");
+ secondary.classList.toggle("hidden",!direct);
+ if(direct)secondary.href=direct;else secondary.removeAttribute("href");
+ secondary.title="この直接リンクは、未ログインでは「No results found」になる場合があります";
  $("#progressSection").classList.toggle("hidden",!enrolled);
  if(enrolled){
   updateWatchProgress(c);
