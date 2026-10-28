@@ -149,9 +149,9 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <div class="officialLabel" id="officialLabel">放送授業のインターネット配信</div>
    <a id="officialLogin" class="directOpen" href="https://www.wakaba.ouj.ac.jp/portal/" target="_self">① 先にWAKABAへログイン（必要な場合）↗</a>
    <a id="officialOpen" class="officialOpen" href="https://v.ouj.ac.jp/view/ouj/" target="_self">
-    <span id="officialOpenText">② 公式動画サイトで科目を探す</span><span class="externalIcon" aria-hidden="true">↗</span>
+    <span id="officialOpenText">② 公式動画を開く</span><span class="externalIcon" aria-hidden="true">↗</span>
    </a>
-   <p id="officialHelp" class="officialHelp">動画サイトを開いたら右上の虫眼鏡をタップし、科目名で検索して該当科目を選んでください。全回視聴にはWAKABAログインが必要です。ログイン時は同じChromeを使ってください。</p>
+   <p id="officialHelp" class="officialHelp">科目別の公式配信一覧を開きます。全回視聴にはWAKABAへのログインが必要です。</p>
   </div>
   <section id="progressSection" class="progressSection hidden" aria-label="視聴進捗の記録">
    <div class="progressHead" id="progressHead">視聴記録</div>
@@ -171,6 +171,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
 </section>
 
 
+<script src="./course-links.js"></script>
 <script src="./courses.js"></script>
 <script>
 window.OUJ_READY.then(()=>{
@@ -180,6 +181,15 @@ const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const norm=s=>(s||"").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
 const key=c=>c.title+"|"+c.media+"|"+c.extent;
+function officialCourseUrl(c){
+ const raw=window.OUJ_LINKS&&window.OUJ_LINKS[c.title];
+ if(typeof raw!=="string")return "";
+ try{
+  const u=new URL(raw), q=u.hash.indexOf("?");
+  const caa=q>=0?new URLSearchParams(u.hash.slice(q+1)).get("caa"):"";
+  return u.protocol==="https:"&&u.hostname==="v.ouj.ac.jp"&&u.pathname==="/view/ouj/"&&/^#\/navi\/vod\?caa=/.test(u.hash)&&/^[A-Za-z0-9]{1,8}$/.test(caa||"")?u.href:"";
+ }catch(e){return ""}
+}
 const titleBase=s=>String(s||"").replace(/[（(]\s*['’]?\s*[0-9０-９]{2}\s*[）)]/g,"").trim();
 const ENROLLED_TITLES=[
  "西洋哲学の根源",
@@ -418,13 +428,15 @@ function openWatch(c,options={}){
  $("#watchTitle").textContent=c.title;
  $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
- const enrolled=isEnrolled(c);
+ const enrolled=isEnrolled(c), direct=officialCourseUrl(c);
  const link=$("#officialOpen");
  link.target="_self";
- link.href=PLAYER;
+ link.href=direct||PLAYER;
  $("#officialLabel").textContent="放送授業のインターネット配信";
- $("#officialOpenText").textContent="公式動画サイトで科目を探す";
- $("#officialHelp").textContent="動画サイトを開いたら右上の虫眼鏡をタップし、「"+c.title+"」で検索して該当科目を選んでください。全回視聴にはWAKABAログインが必要です。ログイン時は同じChromeを使ってください。";
+ $("#officialOpenText").textContent=direct?"公式動画を開く":"公式配信サイトで科目を探す";
+ $("#officialHelp").textContent=direct
+  ?"この科目の公式配信一覧を開きます。全回視聴にはWAKABAログインが必要です。先に上のリンクからログインし、同じChromeで戻ってください。"
+  :"科目別リンクは未登録です。配信サイト右上の虫眼鏡から「"+c.title+"」を検索して、該当科目を選んでください。全回視聴にはWAKABAログインが必要です。";
  const login=$("#officialLogin");
  login.classList.remove("hidden");
  login.href=WAKABA;
@@ -433,7 +445,9 @@ function openWatch(c,options={}){
  $("#progressSection").classList.toggle("hidden",!enrolled);
  if(enrolled){
   updateWatchProgress(c);
-  $("#playHint").textContent="右上の虫眼鏡をタップし、「"+c.title+"」で検索して該当科目を選んでください。視聴後は戻るボタンでこの画面に戻れます。";
+  $("#playHint").textContent=direct
+   ?"公式配信で視聴する回を選んでください。視聴後は戻るボタンでこの画面に戻れます。"
+   :"右上の虫眼鏡から「"+c.title+"」を検索して科目を選んでください。";
  }
  link.onclick=()=>{
   if(enrolled){
