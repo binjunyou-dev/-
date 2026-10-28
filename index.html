@@ -146,14 +146,12 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
   <h1 id="watchTitle"></h1>
   <div id="watchMeta" class="watchmeta"></div>
   <div class="officialMain">
-   <div class="officialLabel" id="officialLabel">放送大学の公式サイト</div>
-   <a id="officialOpen" class="officialOpen" href="https://www.ouj.ac.jp/reasons-to-choose-us/ocw/" target="_self">
-    <span id="officialOpenText">公式サイトで科目を開く</span><span class="externalIcon" aria-hidden="true">↗</span>
+   <div class="officialLabel" id="officialLabel">放送授業のインターネット配信</div>
+   <a id="officialLogin" class="directOpen" href="https://www.wakaba.ouj.ac.jp/portal/" target="_self">① 先にWAKABAへログイン（必要な場合）↗</a>
+   <a id="officialOpen" class="officialOpen" href="https://v.ouj.ac.jp/view/ouj/" target="_self">
+    <span id="officialOpenText">② 公式動画サイトを開く</span><span class="externalIcon" aria-hidden="true">↗</span>
    </a>
-   <p id="officialHelp" class="officialHelp">WAKABAにログインした同じブラウザーで公式配信を開きます。視聴後は戻るボタンでこの画面に戻れます。</p>
-   <a id="officialDirect" class="directOpen hidden" target="_self">学生向け公式配信へ（ログインが必要）↗</a>
-   <a id="officialLogin" class="directOpen hidden" href="https://www.wakaba.ouj.ac.jp/portal/" target="_self">WAKABAにログイン（必要な場合）↗</a>
-   <a id="officialOcw" class="directOpen hidden" href="https://www.ouj.ac.jp/reasons-to-choose-us/ocw/" target="_self">一般公開分をOCWで見る ↗</a>
+   <p id="officialHelp" class="officialHelp">公式配信サイトのMENUから科目名を検索してください。第1回以外の視聴にはWAKABAログインが必要です。視聴後は戻るボタンでこの画面に戻れます。</p>
   </div>
   <section id="progressSection" class="progressSection hidden" aria-label="視聴進捗の記録">
    <div class="progressHead" id="progressHead">視聴記録</div>
@@ -172,12 +170,11 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
  </div>
 </section>
 
-<script src="./course-links.js"></script>
+
 <script src="./courses.js"></script>
 <script>
 window.OUJ_READY.then(()=>{
 const PLAYER="https://v.ouj.ac.jp/view/ouj/";
-const OCW="https://www.ouj.ac.jp/reasons-to-choose-us/ocw/";
 const WAKABA="https://www.wakaba.ouj.ac.jp/portal/";
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -398,14 +395,6 @@ function render(){
 }
 function toggleFav(c){const k=key(c);favs.has(k)?favs.delete(k):favs.add(k);saveFavs()}
 // Course links were published in course-links.js. No direct video fetching occurs.
-function officialCourseUrl(c){
- const raw=window.OUJ_LINKS&&window.OUJ_LINKS[c.title];
- if(typeof raw!=="string")return "";
- try{
-  const u=new URL(raw);
-  return u.protocol==="https:"&&u.hostname==="v.ouj.ac.jp"&&u.pathname.startsWith("/view/ouj/")&&u.hash.startsWith("#/navi/vod?caa=")?u.href:"";
- }catch(e){return ""}
-}
 function updateWatchProgress(c){
  const base=titleBase(c.title);
  $("#progressDescription").textContent=progressText(base)+"。公式サイトを開いた後、視聴する回を選んでください。";
@@ -429,45 +418,22 @@ function openWatch(c,options={}){
  $("#watchTitle").textContent=c.title;
  $("#watchMeta").textContent=[c.media,c.extent,c.category,c.year?c.year+"年度":""].filter(Boolean).join(" ・ ");
  $("#watchFav").textContent=(favs.has(key(c))?"★":"☆")+" お気に入り";
- const direct=officialCourseUrl(c), enrolled=isEnrolled(c);
- const ocwUrl=OCW+"#:~:text="+encodeURIComponent(c.title);
- const streamUrl=direct||PLAYER;
- const useStudentStream=enrolled;
+ const enrolled=isEnrolled(c);
  const link=$("#officialOpen");
  link.target="_self";
- link.href=useStudentStream?streamUrl:ocwUrl;
- $("#officialLabel").textContent=useStudentStream?"放送大学 学生向け公式配信":"放送大学公式OCW";
- $("#officialOpenText").textContent=useStudentStream?(direct?"公式動画を開く":"公式配信トップを開く"):"公式OCWで公開回を見る";
- $("#officialHelp").textContent=useStudentStream
-  ?(direct
-    ?"同じPWA画面内で公式配信を開きます。WAKABAにログイン済みなら、そのブラウザーのログイン状態を利用します。"
-    :"科目別の直リンクは未登録です。公式配信トップを開き、科目名を検索してください。")
-  :"公開中の公式OCWを同じ画面で開きます。学生向け配信にはWAKABAログインが必要です。";
- const secondary=$("#officialDirect");
- const showDirectFallback=!!direct&&!useStudentStream;
- secondary.classList.toggle("hidden",!showDirectFallback);
- if(showDirectFallback){
-  secondary.href=direct;
-  secondary.target="_self";
-  secondary.title="WAKABAにログイン済みの同じブラウザーで開いてください";
- }else secondary.removeAttribute("href");
+ link.href=PLAYER;
+ $("#officialLabel").textContent="放送授業のインターネット配信";
+ $("#officialOpenText").textContent="公式動画サイトを開く";
+ $("#officialHelp").textContent="公式配信サイトのMENUから「"+c.title+"」を検索してください。第1回以外の視聴にはWAKABAログインが必要です。視聴後は戻るボタンでこの画面に戻れます。";
  const login=$("#officialLogin");
- login.classList.toggle("hidden",!(enrolled||direct));
+ login.classList.remove("hidden");
  login.href=WAKABA;
  login.target="_self";
  login.onclick=()=>saveNavState(true);
- const ocw=$("#officialOcw");
- ocw.classList.toggle("hidden",!useStudentStream);
- ocw.href=ocwUrl;
- ocw.target="_self";
- ocw.onclick=()=>saveNavState(true);
- secondary.onclick=()=>saveNavState(true);
  $("#progressSection").classList.toggle("hidden",!enrolled);
  if(enrolled){
   updateWatchProgress(c);
-  $("#playHint").textContent=direct
-   ?"公式配信で回を選んでください。WAKABAにログインした同じブラウザーを使うと、視聴後に戻っても科目画面へ戻れます。"
-   :"公式配信トップでログイン後、科目名を検索してください。";
+  $("#playHint").textContent="公式配信サイトのMENUから「"+c.title+"」を検索してください。視聴後は戻るボタンでこの画面に戻れます。";
  }
  link.onclick=()=>{
   if(enrolled){
