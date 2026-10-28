@@ -149,9 +149,9 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <div class="officialLabel" id="officialLabel">放送授業のインターネット配信</div>
    <a id="officialLogin" class="directOpen" href="https://www.wakaba.ouj.ac.jp/portal/" target="_self">① 先にWAKABAへログイン（必要な場合）↗</a>
    <a id="officialOpen" class="officialOpen" href="https://v.ouj.ac.jp/view/ouj/" target="_self">
-    <span id="officialOpenText">② 公式動画サイトを開く</span><span class="externalIcon" aria-hidden="true">↗</span>
+    <span id="officialOpenText">② 公式動画サイトで科目を探す</span><span class="externalIcon" aria-hidden="true">↗</span>
    </a>
-   <p id="officialHelp" class="officialHelp">第1回以外を視聴するにはWAKABAにログインし、同じChromeで公式配信サイトを開いてください。サイト内のMENUから科目名を検索します。視聴後は戻るボタンでこの画面に戻れます。</p>
+   <p id="officialHelp" class="officialHelp">動画サイトを開いたら右上の虫眼鏡をタップし、科目名で検索して該当科目を選んでください。全回視聴にはWAKABAログインが必要です。ログイン時は同じChromeを使ってください。</p>
   </div>
   <section id="progressSection" class="progressSection hidden" aria-label="視聴進捗の記録">
    <div class="progressHead" id="progressHead">視聴記録</div>
@@ -423,8 +423,8 @@ function openWatch(c,options={}){
  link.target="_self";
  link.href=PLAYER;
  $("#officialLabel").textContent="放送授業のインターネット配信";
- $("#officialOpenText").textContent="公式動画サイトを開く";
- $("#officialHelp").textContent="第1回以外を視聴するにはWAKABAにログインし、同じChromeで公式配信サイトを開いてください。サイト内のMENUから「"+c.title+"」を検索します。視聴後は戻るボタンでこの画面に戻れます。";
+ $("#officialOpenText").textContent="公式動画サイトで科目を探す";
+ $("#officialHelp").textContent="動画サイトを開いたら右上の虫眼鏡をタップし、「"+c.title+"」で検索して該当科目を選んでください。全回視聴にはWAKABAログインが必要です。ログイン時は同じChromeを使ってください。";
  const login=$("#officialLogin");
  login.classList.remove("hidden");
  login.href=WAKABA;
@@ -433,7 +433,7 @@ function openWatch(c,options={}){
  $("#progressSection").classList.toggle("hidden",!enrolled);
  if(enrolled){
   updateWatchProgress(c);
-  $("#playHint").textContent="同じChromeで公式配信サイトを開き、MENUから「"+c.title+"」を検索してください。視聴後は戻るボタンでこの画面に戻れます。";
+  $("#playHint").textContent="右上の虫眼鏡をタップし、「"+c.title+"」で検索して該当科目を選んでください。視聴後は戻るボタンでこの画面に戻れます。";
  }
  link.onclick=()=>{
   if(enrolled){
