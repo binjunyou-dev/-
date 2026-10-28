@@ -151,7 +151,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:30;height:58
    <a id="officialOpen" class="officialOpen" href="https://v.ouj.ac.jp/view/ouj/" target="_self">
     <span id="officialOpenText">② 公式動画サイトを開く</span><span class="externalIcon" aria-hidden="true">↗</span>
    </a>
-   <p id="officialHelp" class="officialHelp">公式配信サイトのMENUから科目名を検索してください。第1回以外の視聴にはWAKABAログインが必要です。視聴後は戻るボタンでこの画面に戻れます。</p>
+   <p id="officialHelp" class="officialHelp">第1回以外を視聴するにはWAKABAにログインし、同じChromeで公式配信サイトを開いてください。サイト内のMENUから科目名を検索します。視聴後は戻るボタンでこの画面に戻れます。</p>
   </div>
   <section id="progressSection" class="progressSection hidden" aria-label="視聴進捗の記録">
    <div class="progressHead" id="progressHead">視聴記録</div>
@@ -424,7 +424,7 @@ function openWatch(c,options={}){
  link.href=PLAYER;
  $("#officialLabel").textContent="放送授業のインターネット配信";
  $("#officialOpenText").textContent="公式動画サイトを開く";
- $("#officialHelp").textContent="公式配信サイトのMENUから「"+c.title+"」を検索してください。第1回以外の視聴にはWAKABAログインが必要です。視聴後は戻るボタンでこの画面に戻れます。";
+ $("#officialHelp").textContent="第1回以外を視聴するにはWAKABAにログインし、同じChromeで公式配信サイトを開いてください。サイト内のMENUから「"+c.title+"」を検索します。視聴後は戻るボタンでこの画面に戻れます。";
  const login=$("#officialLogin");
  login.classList.remove("hidden");
  login.href=WAKABA;
@@ -433,7 +433,7 @@ function openWatch(c,options={}){
  $("#progressSection").classList.toggle("hidden",!enrolled);
  if(enrolled){
   updateWatchProgress(c);
-  $("#playHint").textContent="公式配信サイトのMENUから「"+c.title+"」を検索してください。視聴後は戻るボタンでこの画面に戻れます。";
+  $("#playHint").textContent="同じChromeで公式配信サイトを開き、MENUから「"+c.title+"」を検索してください。視聴後は戻るボタンでこの画面に戻れます。";
  }
  link.onclick=()=>{
   if(enrolled){
